@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>VJavaDet API</title>
+  <link href='https://fonts.googleapis.com/css?family=Pacifico' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Arimo' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Hind:300' rel='stylesheet' type='text/css'>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300' rel='stylesheet' type='text/css'>
+
+  <style>
+    body {
+      background-color: #007BFF; /* Set background color to blue */
+      font-family: 'Open Sans Condensed', sans-serif;
+      color: #fff; /* Make text white for contrast */
+      margin: 0;
+      padding: 0;
+    }
+
+    .login {
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.5); /* Dark transparent background for the form */
+      border-radius: 10px;
+      width: 60%;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Pacifico', cursive;
+      font-size: 36px;
+    }
+
+    h2 {
+      font-family: 'Arimo', sans-serif;
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: #e6e6e6;
+    }
+
+    textarea {
+      width: 100%;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      outline: none;
+      padding: 10px;
+      font-size: 14px;
+      color: #fff;
+      border-radius: 4px;
+      box-shadow: inset 0 -5px 45px rgba(100, 100, 100, 0.2), 0 1px 1px rgba(255, 255, 255, 0.2);
+      resize: none;
+      transition: box-shadow .5s ease;
+    }
+
+    textarea:focus {
+      box-shadow: inset 0 -5px 45px rgba(100, 100, 100, 0.4), 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+
+    button {
+      display: inline-block;
+      padding: 10px 15px;
+      margin-top: 10px;
+      font-size: 16px;
+      color: #fff;
+      text-align: center;
+      background-color: #4a77d4;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #3762bc;
+    }
+
+    img {
+      display: block;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+
+<body>
+  <center> 
+    <br><br><br><br>
+    <div class="login">
+      <h1>VJavaDet
+        <img src="./images/logo.png" alt="VJavaDet Logo" style="width:80px;height:80px;">
+      </h1>
+      <h2>A Graph Neural Network Model for Java Source Code Analysis</h2>
+      <!-- Main Input For Receiving Query to our ML -->
+      <form action="{{ url_for('predict') }}" method="post">
+        <textarea name="java_source_code" placeholder="Enter your Java source code here... Important note for correct graph generation. follow this example: public class main{ your code her } " required="required" rows="20" cols="80"></textarea><br><br>
+        <button type="submit">Predict</button>
+      </form>
+      <br><br>
+    </div>
+    <div>{{ prediction_text|safe }}
+      <h5>Go back to the project directory, open "javacodetoanalyse.java," and see the corresponding code lines.</h5>
+    </div>
+  </center>
+</body>
+
+</html>
