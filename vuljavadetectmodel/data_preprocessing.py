@@ -143,7 +143,7 @@ def datasetss(minimal=True, sample=False, return_raw=False, splits="default"):
         except Exception as E:
             print(E)
             pass
-    filename = "sample_Graph_V_projectKB_csv.csv" if sample else "sample_Graph_V_projectKB_csv.csv" # "Graph_V_projectKB_csv_version.csv" #  "Graph_V_projectKB_csv_version.csv"#"F_Graph_V_projectKB_csv_version.csv" # 
+    filename = "sample_Graph_V_projectKB_csv.csv" if sample else "Graph_V_projectKB_csv_version.csv" #  "Graph_V_projectKB_csv_version.csv"#"F_Graph_V_projectKB_csv_version.csv" # 
     df = pd.read_csv(imp.external_dir() / filename) # , encoding='ISO-8859-1'
     #df = df.rename(columns={"index": "id"})
     #df['id'] = df.index
