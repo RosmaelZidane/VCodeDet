@@ -1,11 +1,11 @@
-*.img
 *.simg
 *.sif
 .pytest_cache
 __pycache__
-storage
 *.egg-info
 output
+cache 
+processed
 .vscode/sftp.json
 hpc/logs/*
 .dccache
