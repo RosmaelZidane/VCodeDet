@@ -1,5 +1,5 @@
 
-## VCodeDet: a Graph Neural Network for Java Source Code Vulnerability Detection
+## VCodeDet: a Graph Neural Network for Source Code Vulnerability Detection
 
 
 #### VCodeDet directory Structure
