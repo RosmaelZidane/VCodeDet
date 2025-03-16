@@ -8,13 +8,13 @@ if [[ -n "${SINGSTORAGE}" ]]; then
     cd $SINGSTORAGE
 fi
 
-if [[ -d vuljavadetectmodel/storage/external ]]; then
+if [[ -d vulcodedetectmodel/storage/external ]]; then
     echo "storage exists, starting download"
 else
-    mkdir --parents vuljavadetectmodel/storage/external
+    mkdir --parents vulcodedetectmodel/storage/external
 fi
 
-cd vuljavadetectmodel/storage/external
+cd vulcodedetectmodel/storage/external
 
 if [[ ! -d joern-cli ]]; then
     wget https://github.com/joernio/joern/releases/download/v2.0.331/joern-cli.zip

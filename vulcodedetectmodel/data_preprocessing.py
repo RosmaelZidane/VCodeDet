@@ -12,7 +12,7 @@ from multiprocessing import Pool
 #----------------
 
 try:
-    from  vuljavadetectmodel.inits import __inits__important as imp
+    from  vulcodedetectmodel.inits import __inits__important as imp
 except:
     import inits.__inits__important as imp
 # import inits.__inits__important as imp    # all funtion from here should stard by "imp"

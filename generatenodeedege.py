@@ -5,9 +5,9 @@ import pickle as pkl
 import sys
 import pandas as pd
 import numpy as np
-from vuljavadetectmodel.inits import __inits__important as imp
-import vuljavadetectmodel.data_preprocessing as dpre  
-import vuljavadetectmodel.graph_subprocess as gsp  
+from vulcodedetectmodel.inits import __inits__important as imp
+import vulcodedetectmodel.data_preprocessing as dpre  
+import vulcodedetectmodel.graph_subprocess as gsp  
 
 # Extract nodes and edges data for a given function  
 # SETUP
@@ -415,7 +415,7 @@ def cache_codebert_method_level(df, codebert, _id):
 
 #----------------------------- GNN model ---------------------------
 
-import vuljavadetectmodel.inits.Losss as sceloss  
+import vulcodedetectmodel.inits.Losss as sceloss  
 
 
 class LitGNN(pl.LightningModule):

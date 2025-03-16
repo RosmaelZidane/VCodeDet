@@ -1,4 +1,4 @@
-import vuljavadetectmodel.inits.__inits__important as imp
+import vulcodedetectmodel.inits.__inits__important as imp
 import generatenodeedege as gg 
 import torch     
 import numpy as np    
@@ -31,7 +31,7 @@ def getjavacodetoanalyse(path_codea, text:str):
 
 
 # load the save model checkpoint
-checkpoint_path = f"{imp.external_dir()}/checkpoints/vjavadet.ckpt"
+checkpoint_path = f"{imp.external_dir()}/checkpoints/Vcodedet.ckpt"
 model = gg.LitGNN.load_from_checkpoint(checkpoint_path)
 
 

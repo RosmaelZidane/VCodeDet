@@ -9,7 +9,7 @@ from graphviz import Digraph
 from pathlib import Path
 from collections import defaultdict
 try:
-    from vuljavadetectmodel.inits import __inits__important as imp
+    from vulcodedetectmodel.inits import __inits__important as imp
 except:
     import inits.__inits__important as imp
 # import inits.__inits__important as imp    # all funtion from here should stard by "imp"

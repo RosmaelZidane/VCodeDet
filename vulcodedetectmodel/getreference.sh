@@ -11,10 +11,10 @@ FILE_ID3="1dIGRkg_YqBcUWThnwqRPyQD6_rhIqGfI"    # model checkpoit
 # The name of the output zip file
 OUTPUT_FILE="shared_folder.zip"
 OUTPUT_FILE2="shared_folderr.zip"
-OUTPUT_FILE3="vjavadet.ckpt"
+OUTPUT_FILE3="Vcodedet.ckpt"
 
 
-cd vuljavadetectmodel/storage
+cd vulcodedetectmodel/storage
 
 if [[ ! -d processed ]]; then
     echo "Downloading the file from Google Drive..."
