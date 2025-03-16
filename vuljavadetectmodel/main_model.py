@@ -29,6 +29,8 @@ from dgl.nn.pytorch import GATConv, GraphConv
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from sklearn.metrics import matthews_corrcoef, ndcg_score, f1_score, precision_score
 from sklearn.metrics import recall_score, accuracy_score, roc_auc_score 
+from sklearn.metrics import matthews_corrcoef, f1_score, precision_score, roc_auc_score
+from sklearn.metrics import recall_score, accuracy_score, precision_recall_curve, auc
 
 
 
@@ -650,11 +652,11 @@ class LitGNN(pl.LightningModule):
 
     def __init__(
         self,
-        hfeat: int = 512,
+        hfeat: int = 512, # 1024#
         embtype: str = "codebert",
         embfeat: int = -1,  # Keep for legacy purposes
         num_heads: int = 4,
-        lr: float = 1e-3,
+        lr: float = 1e-4, #1e-3, # 1e-4
         hdropout: float = 0.2,
         mlpdropout: float = 0.2,
         gatdropout: float = 0.2,
@@ -663,7 +665,7 @@ class LitGNN(pl.LightningModule):
         model: str = "gat2layer",
         loss: str = "ce", # "sce", # 
         multitask: str = "linemethod",
-        stmtweight: int = 5,
+        stmtweight: int = 1, # 5
         gnntype: str = "gat",
         random: bool = False,
         scea: float = 0.7,
@@ -683,18 +685,20 @@ class LitGNN(pl.LightningModule):
 
         # Loss
         if self.hparams.loss == "sce":
-            self.loss = sceloss(self.hparams.scea, 1 - self.hparams.scea)
+            self.loss = gpht.SCELoss(self.hparams.scea, 1 - self.hparams.scea)
             self.loss_f = th.nn.CrossEntropyLoss()
         else:
             self.loss = th.nn.CrossEntropyLoss(
-                weight=th.Tensor([1, self.hparams.stmtweight]) #.cuda() ---------------??????
+                weight=th.Tensor([1, self.hparams.stmtweight]) 
             )
             self.loss_f = th.nn.CrossEntropyLoss()
 
         # Metrics
-        self.accuracy = torchmetrics.Accuracy(task="binary", num_classes=2)
-        self.auroc = torchmetrics.AUROC(task="binary", num_classes=2)
+        self.accuracy = torchmetrics.Accuracy(task="binary", num_classes=2, average = 'macro')
+        self.auroc = torchmetrics.AUROC(task="binary", num_classes=2, average = 'macro')
         self.mcc = torchmetrics.MatthewsCorrCoef(task="binary", num_classes=2)
+        self.prec = torchmetrics.Precision(task="binary", num_classes=2, average = 'macro')
+        self.f11 = torchmetrics.F1Score(task="binary", num_classes=2, average = 'macro')
 
         # GraphConv Type
         hfeat = self.hparams.hfeat
@@ -835,7 +839,7 @@ class LitGNN(pl.LightningModule):
                 labels = batch.ndata["_VULN"].long()
                 labels_func = batch.ndata["_FVULN"].long()
         return logits, labels, labels_func
-    
+
     def training_step(self, batch, batch_idx):
         """Training step."""
         logits, labels, labels_func = self.shared_step(batch)
@@ -846,6 +850,7 @@ class LitGNN(pl.LightningModule):
         if not self.hparams.methodlevel:
             loss2 = self.loss_f(logits[1], labels_func)
             loss = (loss1 + self.hparams.stmtweight * loss2) / 2
+            
         else:
             loss = loss1
             acc_func = self.accuracy(logits, labels_func)
@@ -855,13 +860,11 @@ class LitGNN(pl.LightningModule):
         
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch_idx)
         self.log("train_loss_func", loss2, on_epoch=True, prog_bar=True, batch_size=batch_idx)
-        self.log("train_auroc", self.auroc(preds, labels), prog_bar=True, batch_size=batch_idx)
         self.log("train_acc", self.accuracy(preds, labels), prog_bar=True, batch_size=batch_idx)
         self.log("train_mcc", self.mcc(preds, labels), prog_bar=True, batch_size=batch_idx)
         
         if not self.hparams.methodlevel:
             self.log("train_acc_func", self.accuracy(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
-            self.log("train_auroc_func", self.auroc(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
             self.log("train_mcc_func", self.mcc(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
 
         return loss
@@ -875,21 +878,17 @@ class LitGNN(pl.LightningModule):
             logits2 = logits[1]
             loss2 = self.loss_f(logits2, labels_func)
             loss = (loss1 + self.hparams.stmtweight * loss2) / 2
-            
         else:
             loss = loss1
         preds = th.argmax(logits1, dim=1)
         preds_func = th.argmax(logits[1], dim=1) if not self.hparams.methodlevel else None
         self.log("val_loss", loss, prog_bar=True, batch_size=batch_idx)
-        self.log("val_auroc", self.auroc(preds, labels), prog_bar=True, batch_size=batch_idx)
         self.log("val_acc", self.accuracy(preds, labels), prog_bar=True, batch_size=batch_idx)
         self.log("val_mcc", self.mcc(preds, labels), prog_bar=True, batch_size=batch_idx)
 
         if not self.hparams.methodlevel:
             self.log("val_acc_func", self.accuracy(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
-            self.log("val_auroc_func", self.auroc(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
             self.log("val_mcc_func", self.mcc(preds_func, labels_func), prog_bar=True, batch_size=batch_idx)
-    
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -909,25 +908,23 @@ class LitGNN(pl.LightningModule):
         metrics = {
             "test_loss": loss,
             "test_acc": self.accuracy(preds, labels),
-            "test_auroc": self.auroc(preds, labels),
-            "test_mcc": self.mcc(preds, labels)
+            "test_mcc": self.mcc(preds, labels),
         }
         
         if not self.hparams.methodlevel:
             metrics["test_acc_func"] = self.accuracy(preds_func, labels_func)
-            metrics["test_auroc_func"] = self.auroc(preds_func, labels_func)
             metrics["test_mcc_func"] = self.mcc(preds_func, labels_func)
-           
+
         self.test_step_outputs.append(metrics)
         return metrics
 
     def on_test_epoch_end(self):
-        """Test epoch end.""" # investigate how to can save list of metric per epoch from here, then use it to make plot. 
+        """Test epoch end."""
         avg_metrics = {
             key: th.mean(th.stack([x[key] for x in self.test_step_outputs]))
             for key in self.test_step_outputs[0].keys()
         }
-        # print(f"what is insight self.test_step_outputs {self.test_step_outputs}")
+        print(f"what is insight self.test_step_outputs {self.test_step_outputs}")
         self.test_step_outputs.clear()
         self.log_dict(avg_metrics)
         return
@@ -935,80 +932,61 @@ class LitGNN(pl.LightningModule):
     def configure_optimizers(self):
         """Configure optimizers."""
         return AdamW(self.parameters(), lr=self.lr)
-    
-    
-    
-#  train the classifie
-
-model = LitGNN( 
-               hfeat=  512,
-               embtype= "codebert",
-               methodlevel=False,
-               nsampling=True,
-               model= "gat2layer",
-               loss="ce",
-               hdropout=0.3,
-               gatdropout=0.2,
-               num_heads=4,
-               multitask="linemethod", 
-               stmtweight=1,
-               gnntype="gat",
-               scea=0.4,
-               lr=1e-4,
-               )
-
-  # Load data
-samplesz = -1
-data = datasetssDatasetLineVDDataModule(
-    batch_size=64,
-    sample=samplesz,
-    methodlevel=False,
-    nsampling=True,
-    nsampling_hops=2,
-    gtype= "pdg+raw",
-    splits="default"
-    )
-max_epochs = 250 #200 # 100 # 
-
-checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
-metrics = ["train_loss", "val_loss", "val_auroc"]
-trainer = pl.Trainer(
-    accelerator= "auto",
-    devices= "auto",
-    default_root_dir=savepath,
-    num_sanity_val_steps=0,
-    callbacks=[checkpoint_callback], 
-    max_epochs=max_epochs,
-    )
-print(f"[INFO ---] Training the model")
-trainer.fit(model, data) 
-
-# Save the model checkpoint before testing
-checkpoint_path = f"{imp.outputs_dir()}/checkpoints/best-Model.ckpt"
-# trainer.save_checkpoint(checkpoint_path)
-model = LitGNN.load_from_checkpoint(checkpoint_path)
-trainer.test(model, data)
 
 
-def calculate_metrics(model, data):
+
+# compute metrics function
+def statementcalculate_metrics(model, data):
     """
     Calculate ranking metrics: MRR, N@5, MFR,
     and classification metrics: F1-Score, Precision.
     """
-    def mean_reciprocal_rank(y_true, y_scores):
-        order = np.argsort(y_scores, axis=1)[:, ::-1]
-        rank = np.argwhere(order == y_true[:, None])[:, 1] + 1
-        return np.mean(1.0 / rank)
+    # Extract function-level predictions and true labels
+    all_preds_ = []
+    all_labels_ = []
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    model.eval()
+    for batch in data.test_dataloader():
+        with torch.no_grad():
+            logits, labels, labels_func = model.shared_step(batch.to(device), test=True)
+            if labels is not None:  # the comented code is best
+                preds_ = torch.softmax(logits[0], dim=1).cpu().numpy()
+                labels_f = labels.cpu().numpy()
+                all_preds_.extend(preds_)
+                all_labels_.extend(labels_f)
 
-    def precision_at_n(y_true, y_scores, n=5):
-        order = np.argsort(y_scores, axis=1)[:, ::-1]
-        top_n = order[:, :n]
-        return np.mean(np.any(top_n == y_true[:, None], axis=1))
+    all_preds_ = np.array(all_preds_)
+    all_labels_ = np.array(all_labels_)
 
-    def mean_first_rank(y_true, y_scores):
-        order = np.argsort(y_scores, axis=1)[:, ::-1]
-        rank = np.argwhere(order == y_true[:, None])[:, 1] + 1
-        return np.mean(rank)
+
+    predicted_classes = np.argmax(all_preds_, axis=1)
+    f1_c = f1_score(all_labels_, predicted_classes, average="macro")
+    precision = precision_score(all_labels_, predicted_classes, average="macro")
+    accuracy = accuracy_score(all_labels_, predicted_classes, normalize= True )
+    recall = recall_score(all_labels_, predicted_classes, average= "macro") # average=None, zero_division=np.nan
+    roc_ = roc_auc_score(all_labels_, predicted_classes, average= "macro")
+    mcc_ = matthews_corrcoef(all_labels_, predicted_classes)
+    precisionq, recallq, thresholds = precision_recall_curve(all_labels_, predicted_classes)
+    pr_auc = auc(recallq, precisionq)
+    prediction = pd.DataFrame({"true label": all_labels_,
+                          "Predicted_label": predicted_classes})
+   
+    return {
+        "accuracy": accuracy,
+        "Precision": precision,
+        "F1-Score": f1_c,
+        "recall" : recall,
+        "roc_auc" : roc_,
+        "mcc": mcc_,
+        "pr_auc": pr_auc,
+    }, prediction
+    
+def methodcalculate_metrics(model, data):
+    """
+    Calculate ranking metrics: MRR, N@5, MFR,
+    and classification metrics: F1-Score, Precision.
+    """
 
     # Extract function-level predictions and true labels
     all_preds_ = []
@@ -1019,19 +997,14 @@ def calculate_metrics(model, data):
     for batch in data.test_dataloader():
         with torch.no_grad():
             logits, labels, labels_func = model.shared_step(batch.to(device), test=True)
-            if labels is not None:  
-                preds_ = torch.softmax(logits[0], dim=1).cpu().numpy()
-                labels_f = labels.cpu().numpy()
+            if labels_func is not None:  # the comented code is best
+                preds_ = torch.softmax(logits[1], dim=1).cpu().numpy()
+                labels_f = labels_func.cpu().numpy()
                 all_preds_.extend(preds_)
                 all_labels_.extend(labels_f)
 
     all_preds_ = np.array(all_preds_)
     all_labels_ = np.array(all_labels_)
-
-    # Compute ranking metrics
-    MRR = mean_reciprocal_rank(all_labels_, all_preds_)
-    N5 = precision_at_n(all_labels_, all_preds_, n=5)
-    MFR = mean_first_rank(all_labels_, all_preds_)
 
     predicted_classes = np.argmax(all_preds_, axis=1)
     f1_c = f1_score(all_labels_, predicted_classes, average="macro")
@@ -1040,13 +1013,11 @@ def calculate_metrics(model, data):
     recall = recall_score(all_labels_, predicted_classes, average= "macro") # average=None, zero_division=np.nan
     roc_ = roc_auc_score(all_labels_, predicted_classes, average= "macro")
     mcc_ = matthews_corrcoef(all_labels_, predicted_classes)
-    
-    
+    precisionq, recallq, thresholds = precision_recall_curve(all_labels_, predicted_classes)
+    pr_auc = auc(recallq, precisionq)
     prediction = pd.DataFrame({"true label": all_labels_,
                           "Predicted_label": predicted_classes})
-    # print(f"Predict label {predicted_classes}")
-    # print(f"true label {all_labels_}")
-    
+
     return {
         "accuracy": accuracy,
         "Precision": precision,
@@ -1054,57 +1025,101 @@ def calculate_metrics(model, data):
         "recall" : recall,
         "roc_auc" : roc_,
         "mcc": mcc_,
-        "MRR": MRR,
-        "N@5": N5,
-        "MFR": MFR,
+        "pr_auc": pr_auc,
     }, prediction
 
-metrics = calculate_metrics(model, data)[0]
-dfm = pd.DataFrame([metrics])
-dfm.to_csv(f"{imp.outputs_dir()}/evaluation_metrics.csv", index=False)
-prediction_ = calculate_metrics(model, data)[1]
-prediction_.to_csv(f"{imp.outputs_dir()}/predict_label.csv", index = False)
-print(f"Metris {metrics} \n-----------------------------> Done ")
+#  train the classifier
+checkpoint_path = f"{imp.outputs_dir()}/checkpoints"
+samplesz = -1
 
+# list of epoch tried [30, 50 , 130, 200, 250], note that effective learning is achieve with hight epchs
 
-
-
-
-
-
-# #  Predict in a single function by prodiding  the graph in the path
-# all_preds_ = []
-# all_labels_ = []
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# model.to(device)
-# model.eval()
-# path = "/home/GNN2025/VJavaDet/vuljavadetectmodel/storage/cache/datasetss_linevd_codebert_pdg+raw/90000000000"
+max_epochs = 50
+if not os.path.exists(path=checkpoint_path):
+    print(f"[Infos ] --->> Training the main model")
+    run_id = imp.get_run_id()
+    savepath = imp.get_dir(imp.processed_dir() / "codebert" / run_id)
+    model = LitGNN( 
+                   hfeat= 512,# List of values used  [256, #1024, #512, # 1024 two with 512 and 2 with 1024]
+                   embtype= "codebert",
+                   methodlevel=False,
+                   nsampling=True,
+                   model= "gat2layer", # gat1layer
+                   loss="ce",
+                   hdropout=0.5,
+                   gatdropout=0.3,
+                   num_heads=4,
+                   multitask="linemethod", # methodlevel
+                   stmtweight=1,
+                   gnntype="gat",
+                   scea=0.5,
+                   lr=1e-4, # [1e-3, 1e-3, 1e-3]
+                   )
     
-# g = load_graphs(path)[0][0]
-# batch = g
-# # print(f"batch {batch.number_of_nodes()} \n {batch.ndata['_VULN']}")
-# with torch.no_grad():
-#     logits, labels, labels_func = model.shared_step(batch.to(device), test=True)
-#     if labels is not None:
-#         preds_ = torch.softmax(logits[0], dim=1).cpu().numpy()
-#         labels_f = labels.cpu().numpy()
-#         all_preds_.extend(preds_)
-#         all_labels_.extend(labels_f)   
-#     all_preds_ = np.array(all_preds_)
-#     all_labels_ = np.array(all_labels_) 
-# # Adjust the predictions based on a custom threshold (e.g., 0.3)
-# threshold = 0.01
-# adjusted_preds = np.where(all_preds_ <= threshold, 0, all_preds_)
-# # Use argmax to select the class
-# final_preds = np.argmax(adjusted_preds, axis=1)
-# predicted_classes = np.argmax( all_preds_, axis=1)
-# f1_c = f1_score(all_labels_, predicted_classes, average="macro")
-# precision = precision_score(all_labels_, predicted_classes, average="macro")
-# accuracy = accuracy_score(all_labels_, predicted_classes, normalize= True )
-# recall = recall_score(all_labels_, predicted_classes,average = "macro")
-# # roc_ = roc_auc_score(all_labels_, predicted_classes, average= "macro")
-# mcc_ = matthews_corrcoef(all_labels_, predicted_classes)
-# print(f"--->>> Predict label {all_preds_}")
-# print(f"--->>++ {final_preds}")
-# print(f"-->>> Predicted class {predicted_classes}")
-# print(f"--->>> true label {all_labels_}")
+    # load data
+    data = datasetssDatasetLineVDDataModule(
+        batch_size=64,
+        sample=samplesz,
+        methodlevel=False,
+        nsampling=True,
+        nsampling_hops=2,
+        gtype= "pdg+raw",
+        splits="default",
+        )
+
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss")
+    metrics = ["train_loss", "val_loss", "val_auroc"]
+    trainer = pl.Trainer(
+        accelerator= "auto",
+        devices= "auto",
+        default_root_dir=savepath,
+        num_sanity_val_steps=0,
+        callbacks=[checkpoint_callback], 
+        max_epochs=max_epochs,
+        )
+    trainer.fit(model, data)
+    checkpoint_path = imp.get_dir(f"{imp.outputs_dir()}/checkpoints")
+    trainer.save_checkpoint(f"{checkpoint_path}/model-checkpoint.ckpt")
+    # test 
+    trainer.test(model, data)
+    print(f"Statement level prediction")
+    metrics1 = methodcalculate_metrics(model, data)[0]
+    dfm = pd.DataFrame([metrics1])
+    dfm.to_csv(f"{imp.outputs_dir()}/statement-evaluation_metrics.csv", index=False)
+    print(f"statelement {metrics1} ")
+    # method level
+    print(f"method level prediction")
+    metrics = statementcalculate_metrics(model, data)[0]
+    dfm = pd.DataFrame([metrics])
+    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
+else:   
+    print(f"[Infos ] ---> Saved model exits.")
+    print(f"[Infos ] ---> Load from pretarined")
+    # load model
+    model = LitGNN.load_from_checkpoint(f"{checkpoint_path}/model-checkpoint.ckpt")
+    # load data
+    data = datasetssDatasetLineVDDataModule(
+        batch_size=64,
+        sample=samplesz,
+        methodlevel=False,
+        nsampling=True,
+        nsampling_hops=2,
+        gtype= "pdg+raw",
+        splits="default",
+        )
+    # compute metrics
+    # test 
+    print(f"Statement level prediction")
+    metrics1 = methodcalculate_metrics(model, data)[0]
+    dfm = pd.DataFrame([metrics1])
+    dfm.to_csv(f"{imp.outputs_dir()}/statement-evaluation_metrics.csv", index=False)
+    print(f"statelement {metrics1} ")
+    # method level
+    print(f"method level prediction")
+    metrics = statementcalculate_metrics(model, data)[0]
+    dfm = pd.DataFrame([metrics])
+    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
+
+    

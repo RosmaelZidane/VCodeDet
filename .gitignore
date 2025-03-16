@@ -2,6 +2,12 @@
 *.sif
 .pytest_cache
 __pycache__
+vuljavadetectmodel/__pycache__
+vuljavadetectmodel/storage/processed
+vuljavadetectmodel/storage/cache
+vuljavadetectmodel/storage/external/checkpoints
+vuljavadetectmodel/storage/external/joern-cli
+vuljavadetectmodel/storage/external/output
 *.egg-info
 output
 cache 

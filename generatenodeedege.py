@@ -729,8 +729,7 @@ def modelpredict(model, g, id):
             all_labels_.extend(labels_f)   
     all_preds_ = np.array(all_preds_)
     all_labels_ = np.array(all_labels_) 
-    threshold = 0.2
-    rounded_preds = np.where(all_preds_[:, 1] >= threshold, 1, 0)
+    rounded_preds = np.where(all_preds_[:, 1] >= 0.2, 1, 0)
     # Use argmax to select the class
     # predicted_classes = np.argmax( all_preds_, axis=1)
     predicted_classes = rounded_preds
@@ -742,4 +741,12 @@ def modelpredict(model, g, id):
     lines_list = list(map(int, code_line.split()))
     result_dict = {"code line": lines_list, "vul status": predict_status}
     output = pd.DataFrame(result_dict)
+    vulnerable_lines = output[output['vul status'] == 1]
+    if not vulnerable_lines.empty:
+        output = vulnerable_lines
+    else:
+        output = pd.DataFrame({
+        "code line": ["No potential vulnerable line found"],  
+        "vul status": ["Thank you!!!"]
+        })
     return output

@@ -106,7 +106,7 @@ docker run -it image_vjavadet bash
 ```
 Run app.y, then click on the link in the terminal.
 ```bash
-python3 app.y
+python3 app.py
 ```
 Exit and stop the container once you have completed the code analysis.
 
