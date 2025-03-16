@@ -1,5 +1,5 @@
 
-## VJavaDet: a Graph Neural Network for Java Source Code Vulnerability Detection
+## VCodeDet: a Graph Neural Network for Java Source Code Vulnerability Detection
 <div style="text-align: center">
     <img src="templates/images/logo.png" alt="logo" width="110" height="110">
 </div>
