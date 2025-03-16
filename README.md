@@ -6,7 +6,7 @@
 ```dir
 (main module)  ├── templates
                │   └── images
-(models)       ├── vuljavadetectmodel
+(models)       ├── vulcodedetectmodel
                │   ├── storage
                │   |  ├── cache
                │   |  ├── processed
