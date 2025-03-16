@@ -1,10 +1,8 @@
 
 ## VCodeDet: a Graph Neural Network for Java Source Code Vulnerability Detection
-<div style="text-align: center">
-    <img src="templates/images/logo.png" alt="logo" width="110" height="110">
-</div>
 
-#### VJavaDet directory Structure
+
+#### VCodeDet directory Structure
 ```dir
 (main module)  ├── templates
                │   └── images
