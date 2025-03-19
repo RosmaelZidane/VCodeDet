@@ -936,9 +936,10 @@ def statementcalculate_metrics(model, data):
 
     all_preds_ = np.array(all_preds_)
     all_labels_ = np.array(all_labels_)
-
-
     predicted_classes = np.argmax(all_preds_, axis=1)
+    predicted_classes = np.argmax(all_preds_, axis=1)
+    rounded_preds = np.where(all_preds_[:, 1] >= 0.5, 1, 0)
+    predicted_classes = rounded_preds
     f1_c = f1_score(all_labels_, predicted_classes, average="macro")
     precision = precision_score(all_labels_, predicted_classes, average="macro")
     accuracy = accuracy_score(all_labels_, predicted_classes, normalize= True )
@@ -983,8 +984,10 @@ def methodcalculate_metrics(model, data):
 
     all_preds_ = np.array(all_preds_)
     all_labels_ = np.array(all_labels_)
-
     predicted_classes = np.argmax(all_preds_, axis=1)
+    predicted_classes = np.argmax(all_preds_, axis=1)
+    rounded_preds = np.where(all_preds_[:, 1] >= 0.5, 1, 0)
+    predicted_classes = rounded_preds
     f1_c = f1_score(all_labels_, predicted_classes, average="macro")
     precision = precision_score(all_labels_, predicted_classes, average="macro")
     accuracy = accuracy_score(all_labels_, predicted_classes, normalize= True )
@@ -1068,9 +1071,9 @@ if not os.path.exists(path=checkpoint_path):
     # method level
     print(f"method level prediction")
     metrics = statementcalculate_metrics(model, data)[0]
-    dfm = pd.DataFrame([metrics])
-    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
-    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
+    # dfm = pd.DataFrame([metrics])
+    # dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    # print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
 else:   
     print(f"[Infos ] ---> Saved model exits.")
     print(f"[Infos ] ---> Load from pretarined")
@@ -1096,8 +1099,8 @@ else:
     # method level
     print(f"method level prediction")
     metrics = statementcalculate_metrics(model, data)[0]
-    dfm = pd.DataFrame([metrics])
-    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
-    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
+    # dfm = pd.DataFrame([metrics])
+    # dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    # print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
 
     
