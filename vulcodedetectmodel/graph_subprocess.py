@@ -107,7 +107,7 @@ def run_joern(filepath: str, verbose: int):
 def get_node_edges(filepath: str, verbose=0):
     """Get node and edges given filepath (must run after run_joern).
 
-    filepath = "/home/david/Documents/projects/singularity-sastvd/storage/processed/datasetss/before/53.c"
+    filepath = "/storage/processed/datasetss/before/53.c"
     """
     outdir = Path(filepath).parent
     outfile = outdir / Path(filepath).name
@@ -184,10 +184,6 @@ def get_node_edges(filepath: str, verbose=0):
         if type(e.outnode) == str:
             lineNum = linemap[e.innode]
             node_label = f"TYPE_{lineNum}: {typemap[int(e.outnode.split('_')[0])]}"
-            # nodes = nodes.append(
-            #     {"id": e.outnode, "node_label": node_label, "lineNumber": lineNum},
-            #     ignore_index=True,
-            # )
             nodes1 = {"id": e.outnode, "node_label": node_label, "lineNumber": lineNum}
             nodes1 = pd.DataFrame([nodes1])
             nodes = pd.concat([nodes, nodes1], ignore_index=True)

@@ -444,22 +444,6 @@ def get_sast_lines(sast_pkl_path):
     return ret
 
 
-
-
-#-----draw a dgl graph --------------
-
-def draw_dgl_graph(dgl_graph):
-    """Convert DGL graph to NetworkX graph"""
-    nx_graph = dgl_graph.to_networkx()
-    pos = nx.spring_layout(nx_graph) 
-    nx.draw(nx_graph, pos, with_labels=True, 
-            node_color='skyblue', node_size=400, 
-            edge_color='black', linewidths=1, 
-            font_size=8)
- 
-    plt.show()
-
-
 class datasetssDatasetLineVD(datasetssDataset):
     """IVDetect version of datasetss."""
 
@@ -645,8 +629,6 @@ class datasetssDatasetLineVDDataModule(pl.LightningDataModule):
         """Return test dataloader."""
         return GraphDataLoader(self.test, shuffle = False, batch_size=32, num_workers=10)
     
-
-
 class LitGNN(pl.LightningModule):
     """Main Trainer."""
 
@@ -685,7 +667,7 @@ class LitGNN(pl.LightningModule):
 
         # Loss
         if self.hparams.loss == "sce":
-            self.loss = gpht.SCELoss(self.hparams.scea, 1 - self.hparams.scea)
+            self.loss = sceloss.SCELoss(self.hparams.scea, 1 - self.hparams.scea)
             self.loss_f = th.nn.CrossEntropyLoss()
         else:
             self.loss = th.nn.CrossEntropyLoss(
@@ -695,10 +677,7 @@ class LitGNN(pl.LightningModule):
 
         # Metrics
         self.accuracy = torchmetrics.Accuracy(task="binary", num_classes=2, average = 'macro')
-        self.auroc = torchmetrics.AUROC(task="binary", num_classes=2, average = 'macro')
         self.mcc = torchmetrics.MatthewsCorrCoef(task="binary", num_classes=2)
-        self.prec = torchmetrics.Precision(task="binary", num_classes=2, average = 'macro')
-        self.f11 = torchmetrics.F1Score(task="binary", num_classes=2, average = 'macro')
 
         # GraphConv Type
         hfeat = self.hparams.hfeat
@@ -932,7 +911,6 @@ class LitGNN(pl.LightningModule):
     def configure_optimizers(self):
         """Configure optimizers."""
         return AdamW(self.parameters(), lr=self.lr)
-
 
 
 # compute metrics function

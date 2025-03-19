@@ -58,7 +58,7 @@ def predict():# text: str
 		}
  	}"""
     java_code = request.form['java_source_code']
-    path_codea = f"{imp.project_dir().parent.parent}/javacodeanalyse.java"
+    path_codea = f"{imp.project_dir().parent.parent}/codeanalyse.java"
     getjavacodetoanalyse(path_codea, java_code)
     code_text = gg.readjavacode(pathjavacode = path_codea)[0]
     id = gg.readjavacode(pathjavacode= path_codea)[1]
