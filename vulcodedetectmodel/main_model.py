@@ -1013,9 +1013,9 @@ def methodcalculate_metrics(model, data):
 checkpoint_path = f"{imp.outputs_dir()}/checkpoints"
 samplesz = -1
 
-# list of epoch tried [30, 50 , 130, 200, 250], note that effective learning is achieve with hight epchs
+# list of epoch tried [30, 50, 100 , 130, 200, 250], note that effective learning is achieve with hight epchs
 
-max_epochs = 50
+max_epochs = 100
 if not os.path.exists(path=checkpoint_path):
     print(f"[Infos ] --->> Training the main model")
     run_id = imp.get_run_id()
@@ -1034,7 +1034,7 @@ if not os.path.exists(path=checkpoint_path):
                    stmtweight=1,
                    gnntype="gat",
                    scea=0.5,
-                   lr=1e-4, # [1e-3, 1e-3, 1e-3]
+                   lr=1e-5, # [1e-3, 1e-4, 1e-3]
                    )
     
     # load data
