@@ -478,34 +478,7 @@ class datasetssDatasetLineVD(datasetssDataset):
         g.edata["_ETYPE"] = th.Tensor(et).long()
         emb_path = imp.cache_dir() / f"codebert_method_level/{_id}.pt"
         g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
-        
-        # # # Node embeddings step 
-        # nx_graph = g.to_networkx() 
-        # node2vec = Node2Vec(nx_graph, dimensions=768, walk_length= 5, num_walks= 10, workers=4)
-        # model = node2vec.fit(window = 5, min_count = 1, batch_words = 8)
-        # embeddings = model.wv
-        # node_embeddings = {int(node): embeddings[str(node)] for node in nx_graph.nodes}
-        # embedding_matrix = torch.tensor([node_embeddings[node.item()] for node in g.nodes()], dtype=torch.float)
-        # g.ndata['node_embedding'] = embedding_matrix
-        
-        # # edges embedding
-        # src, dst = g.edges()
-        # src_embeddings = g.ndata['node_embedding'][src]
-        # dst_embeddings = g.ndata['node_embedding'][dst]
-        # edge_embeddings = (src_embeddings + dst_embeddings) / 2
-        # g.edata['edge_embedding'] = edge_embeddings
-        
-        # # normalise nodes and edge features
-        # g.ndata['node_embedding'] = (g.ndata['node_embedding'] - th.mean(g.ndata['node_embedding'], dim = 0))/th.std(g.ndata['node_embedding'], dim = 0)
-        # g.edata['edge_embedding'] = (g.edata['edge_embedding'] - th.mean(g.edata['edge_embedding'], dim = 0))/th.std(g.edata['edge_embedding'], dim = 0)
-        
-        # # Ensure the node embeddings exist
-        # if "_FUNC_EMB" in g.ndata and "node_embedding" in g.ndata:
-        #     g.ndata["_FUNC_EMB"] = torch.cat((g.ndata["_FUNC_EMB"], g.ndata["node_embedding"]), dim=1)
-            
-        # if "_CODEBERT" in g.ndata and "node_embedding" in g.ndata:
-        #     g.ndata["_CODEBERT"] = torch.cat((g.ndata["_CODEBERT"], g.ndata["node_embedding"]), dim=1)
-        
+    
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
         return g
@@ -939,8 +912,6 @@ def statementcalculate_metrics(model, data):
     pr_auc = auc(recallq, precisionq)
     prediction = pd.DataFrame({"true label": all_labels_,
                           "Predicted_label": predicted_classes})
-    print("The number of nodes in test data:\n", len(prediction['Predicted_label']))
-    print("The number of vul nodes:\n", len(prediction[prediction["true label"]==1]))
     return {
         "accuracy": accuracy,
         "Precision": precision,
@@ -1063,7 +1034,7 @@ if not os.path.exists(path=checkpoint_path):
                    stmtweight=1,
                    gnntype="gat",
                    scea=0.5,
-                   lr=1e-5, # [1e-3, 1e-4, 1e-3]
+                   lr=1e-4, 
                    )
     
     # load data
