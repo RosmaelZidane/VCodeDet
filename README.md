@@ -1,6 +1,7 @@
 
 ## VCodeDet: a Graph Neural Network for Source Code Vulnerability Detection
 
+## Video Description: https://youtu.be/lqghdeM0XS4?si=t7sVHiiT-XEWPh1_
 
 #### VCodeDet directory Structure
 
@@ -75,40 +76,9 @@ python3 ./vulcodedetectmodel/generate_node_edge_data.py
 ```bash
 python3 ./vulcodedetectmodel/main_model.py
 ```
-
-Note: Part of the results will be displayed in the terminal. Open the /vuljavadetectmodel/storage/output directory to explore all the created CSV files for further metrics.
-
-
-### Section 3: Docker Method.
-
-It is expected that you have basic knowledge of [Docker](https://docs.docker.com/install/), which includes installation, testing, and interaction.
-
-
-1. Clone the VcodeDet repository.
-
+another version (better) is here
 ```bash
-git clone https://github.com/RosmaelZidane/VcodeDet.git
-```
-2. Build a docker image
-```bash
-docker build -t image_Vcodedet .
-```
-3. Run the application on port 8000. This port should be free while running the container.
-```bash
-docker run -d -p 8000:8000 image_Vcodedet
+python3 ./vulcodedetectmodel/Jmainmodel.py
 ```
 
-If you cannot access the browser from the command, run the following instructions to execute the app manually.
-
-```bash
-docker run -it image_Vcodedet bash
-```
-Run app.y, then click on the link in the terminal.
-```bash
-python3 app.py
-```
-Exit and stop the container once you have completed the code analysis.
-
-### Citation
-
-To be provided.
+We are editing the part of the code to change the function-level evaluation so that a function can be predicted as vulnerable if a single node is vulnerable. I am still working on this part, so let me know if you find any problem with the running process. Have a look at the function_level_analysis.py file too; it's what I am editing now.

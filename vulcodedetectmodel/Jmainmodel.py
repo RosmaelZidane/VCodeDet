@@ -3,7 +3,7 @@
 
 import os
 import json
-
+import torch.nn as nn
 import dgl
 import torch
 import torch as th
@@ -45,7 +45,7 @@ import graph_subprocess as gsp     # always use this definition if there is a fu
 # embsize = g.ndata['_CODEBERT'].shape
 ### Prepare the embedding model : CodeBERT
 
-
+num_cpus = torch.get_num_threads()
 class datasetssDatasetNLP:
     """Override getitem for codebert."""
 
@@ -85,7 +85,7 @@ class datasetssDatasetNLPLine:
         df = dpre.datasetss()
         df = df[df.label == partition]
         df = df[df.vul == 1].copy()
-        df = df.sample(min(1000, len(df))) 
+        df = df#.sample(min(1000, len(df))) # it does not work, bring back the code #---------------->>
 
         texts = []
         self.labels = []
@@ -426,6 +426,8 @@ def get_sast_lines(sast_pkl_path):
     return ret
 
 
+
+
 class datasetssDatasetLineVD(datasetssDataset):
     """IVDetect version of datasetss."""
 
@@ -479,32 +481,25 @@ class datasetssDatasetLineVD(datasetssDataset):
         emb_path = imp.cache_dir() / f"codebert_method_level/{_id}.pt"
         g.ndata["_FUNC_EMB"] = th.load(emb_path).repeat((g.number_of_nodes(), 1))
         
-        # # # Node embeddings step 
-        # nx_graph = g.to_networkx() 
-        # node2vec = Node2Vec(nx_graph, dimensions=768, walk_length= 5, num_walks= 10, workers=4)
-        # model = node2vec.fit(window = 5, min_count = 1, batch_words = 8)
-        # embeddings = model.wv
-        # node_embeddings = {int(node): embeddings[str(node)] for node in nx_graph.nodes}
-        # embedding_matrix = torch.tensor([node_embeddings[node.item()] for node in g.nodes()], dtype=torch.float)
-        # g.ndata['node_embedding'] = embedding_matrix
+        # # Node embeddings step 
+        nx_graph = g.to_networkx() 
+        node2vec = Node2Vec(nx_graph, dimensions=768, walk_length= 5, num_walks= 10, workers=4)
+        model = node2vec.fit(window = 5, min_count = 1, batch_words = 8)
+        embeddings = model.wv
+        node_embeddings = {int(node): embeddings[str(node)] for node in nx_graph.nodes}
+        embedding_matrix = torch.tensor([node_embeddings[node.item()] for node in g.nodes()], dtype=torch.float)
+        g.ndata['node_embedding'] = embedding_matrix
         
-        # # edges embedding
-        # src, dst = g.edges()
-        # src_embeddings = g.ndata['node_embedding'][src]
-        # dst_embeddings = g.ndata['node_embedding'][dst]
-        # edge_embeddings = (src_embeddings + dst_embeddings) / 2
-        # g.edata['edge_embedding'] = edge_embeddings
+        # edges embedding
+        src, dst = g.edges()
+        src_embeddings = g.ndata['node_embedding'][src]
+        dst_embeddings = g.ndata['node_embedding'][dst]
+        edge_embeddings = (src_embeddings + dst_embeddings) / 2
+        g.edata['edge_embedding'] = edge_embeddings
         
-        # # normalise nodes and edge features
-        # g.ndata['node_embedding'] = (g.ndata['node_embedding'] - th.mean(g.ndata['node_embedding'], dim = 0))/th.std(g.ndata['node_embedding'], dim = 0)
-        # g.edata['edge_embedding'] = (g.edata['edge_embedding'] - th.mean(g.edata['edge_embedding'], dim = 0))/th.std(g.edata['edge_embedding'], dim = 0)
-        
-        # # Ensure the node embeddings exist
-        # if "_FUNC_EMB" in g.ndata and "node_embedding" in g.ndata:
-        #     g.ndata["_FUNC_EMB"] = torch.cat((g.ndata["_FUNC_EMB"], g.ndata["node_embedding"]), dim=1)
-            
-        # if "_CODEBERT" in g.ndata and "node_embedding" in g.ndata:
-        #     g.ndata["_CODEBERT"] = torch.cat((g.ndata["_CODEBERT"], g.ndata["node_embedding"]), dim=1)
+        # normalise nodes and edge features
+        g.ndata['node_embedding'] = (g.ndata['node_embedding'] - th.mean(g.ndata['node_embedding'], dim = 0))/th.std(g.ndata['node_embedding'], dim = 0)
+        g.edata['edge_embedding'] = (g.edata['edge_embedding'] - th.mean(g.edata['edge_embedding'], dim = 0))/th.std(g.edata['edge_embedding'], dim = 0)
         
         g = dgl.add_self_loop(g)
         save_graphs(str(savedir), [g])
@@ -592,7 +587,7 @@ class datasetssDatasetLineVDDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=shuffle,
             drop_last=False,
-            num_workers=10,
+            num_workers=num_cpus,
         ) 
 
     def train_dataloader(self):
@@ -600,22 +595,22 @@ class datasetssDatasetLineVDDataModule(pl.LightningDataModule):
         if self.nsampling:
             g = next(iter(GraphDataLoader(self.train, batch_size=len(self.train))))
             return self.node_dl(g, shuffle=True)
-        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=10)
+        return GraphDataLoader(self.train, shuffle=True, batch_size=self.batch_size, num_workers=num_cpus)
 
     def val_dataloader(self):
         """Return val dataloader."""
         if self.nsampling:
-            g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val), num_workers=10)))
+            g = next(iter(GraphDataLoader(self.val, batch_size=len(self.val), num_workers=num_cpus)))
             return self.node_dl(g)
-        return GraphDataLoader(self.val, shuffle = False, batch_size=self.batch_size, num_workers=10)
+        return GraphDataLoader(self.val, shuffle = False, batch_size=self.batch_size, num_workers=num_cpus)
 
     def val_graph_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.val, shuffle = False, batch_size=32, num_workers=10)
+        return GraphDataLoader(self.val, shuffle = False, batch_size=32, num_workers=num_cpus)
 
     def test_dataloader(self):
         """Return test dataloader."""
-        return GraphDataLoader(self.test, shuffle = False, batch_size=32, num_workers=10)
+        return GraphDataLoader(self.test, shuffle = False, batch_size=32, num_workers=num_cpus)
     
 class LitGNN(pl.LightningModule):
     """Main Trainer."""
@@ -645,7 +640,7 @@ class LitGNN(pl.LightningModule):
         self.lr = lr
         self.random = random
         self.save_hyperparameters()
-
+        self.n2vec_projector = nn.Linear(1536, 768)
         self.test_step_outputs = []
 
         # Set params based on embedding type
@@ -720,12 +715,23 @@ class LitGNN(pl.LightningModule):
             g2 = g[2][1]
             g = g[2][0]
             if "gat2layer" in self.hparams.model:
+                n2vec = g.ndata['node_embedding']['_N']
+                n2vec = torch.nan_to_num(n2vec, nan=0.0, posinf=0.0, neginf=0.0)
                 h = g.srcdata[self.EMBED]
+                h = th.cat([h, n2vec], dim=1)
+                h = self.n2vec_projector(h)
             elif "gat1layer" in self.hparams.model:
                 h = g2.srcdata[self.EMBED]
+                n2vec = g.ndata['node_embedding']['_N']
+                n2vec = torch.nan_to_num(n2vec, nan=0.0, posinf=0.0, neginf=0.0)
+                h = th.cat([h, n2vec], dim=1)
         else:
             g2 = g
+            n2vec = g.ndata.get('node_embedding')
+            n2vec = torch.nan_to_num(n2vec, nan=0.0, posinf=0.0, neginf=0.0)
             h = g.ndata[self.EMBED]
+            h = th.cat([h, n2vec], dim=1)
+            h = self.n2vec_projector(h)
             if len(feat_override) > 0:
                 h = g.ndata[feat_override]
             h_func = g.ndata["_FUNC_EMB"]
@@ -736,16 +742,13 @@ class LitGNN(pl.LightningModule):
                 h_func.shape[0], 2
             ).to(self.device)
 
-        # model: contains femb
         if "+femb" in self.hparams.model:
             h = th.cat([h, h_func], dim=1)
             h = F.elu(self.fc_femb(h))
 
-        # Transform h_func if wrong size
         if self.hparams.embfeat != 768:
             h_func = self.codebertfc(h_func)
 
-        # model: gat2layer
         if "gat" in self.hparams.model:
             if "gat2layer" in self.hparams.model:
                 h = self.gat(g, h)
@@ -761,7 +764,6 @@ class LitGNN(pl.LightningModule):
             h = self.mlpdropout(F.elu(self.fc(h)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
-        # Edge masking (for GNNExplainer)
         if test and len(e_weights) > 0:
             g.ndata["h"] = h
             g.edata["ew"] = e_weights
@@ -770,25 +772,21 @@ class LitGNN(pl.LightningModule):
             )
             h = g.ndata["h"]
 
-        # model: mlp-only
         if "mlponly" in self.hparams.model:
             h = self.mlpdropout(F.elu(self.fconly(hdst)))
             h_func = self.mlpdropout(F.elu(self.fconly(h_func)))
 
-        # Hidden layers
         for idx, hlayer in enumerate(self.hidden):
             h = self.hdropout(F.elu(hlayer(h)))
             h_func = self.hdropout(F.elu(hlayer(h_func)))
         h = self.fc2(h)
-        h_func = self.fc2(
-            h_func
-        )  # Share weights between method-level and statement-level tasks
+        h_func = self.fc2(h_func)
 
         if self.hparams.methodlevel:
             g.ndata["h"] = h
             return dgl.mean_nodes(g, "h"), None
         else:
-            return h, h_func  # Return two values for multitask training
+            return h, h_func
 
     def shared_step(self, batch, test=False):
         """Shared step."""
@@ -907,6 +905,7 @@ def statementcalculate_metrics(model, data):
     Calculate ranking metrics: MRR, N@5, MFR,
     and classification metrics: F1-Score, Precision.
     """
+    # Extract function-level predictions and true labels
     all_preds_ = []
     all_labels_ = []
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -917,7 +916,7 @@ def statementcalculate_metrics(model, data):
     # for batch in data.test_dataloader():
         with torch.no_grad():
             logits, labels, labels_func = model.shared_step(batch.to(device), test=True)
-            if labels is not None:  
+            if labels is not None:  # the comented code is best
                 preds_ = torch.softmax(logits[0], dim=1).cpu().numpy()
                 labels_f = labels.cpu().numpy()
                 all_preds_.extend(preds_)
@@ -956,27 +955,29 @@ def methodcalculate_metrics(model, data):
     Calculate ranking metrics: MRR, N@5, MFR,
     and classification metrics: F1-Score, Precision.
     """
+
     # Extract function-level predictions and true labels
     all_preds_ = []
     all_labels_ = []
     num_func = []
-    Predict_by_func = []
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     model.eval()
+    print("total functions tested:", len(data))
     for batch in data:
     # for batch in data.test_dataloader():
+        # num_func.append(batch)
         with torch.no_grad():
             logits, labels, labels_func = model.shared_step(batch.to(device), test=True)
-            if labels_func is not None:  
+            if labels_func is not None:  # the comented code is best
                 preds_ = torch.softmax(logits[1], dim=1).cpu().numpy()
                 labels_f = labels_func.cpu().numpy()
                 all_preds_.extend(preds_)
                 all_labels_.extend(labels_f)
-                Predict_by_func.append(preds_)
-
+    # print("Total function tested:", len(num_func))
     all_preds_ = np.array(all_preds_)
     all_labels_ = np.array(all_labels_)
+    predicted_classes = np.argmax(all_preds_, axis=1)
     predicted_classes = np.argmax(all_preds_, axis=1)
     rounded_preds = np.where(all_preds_[:, 1] >= 0.5, 1, 0)
     predicted_classes = rounded_preds
@@ -990,7 +991,8 @@ def methodcalculate_metrics(model, data):
     pr_auc = auc(recallq, precisionq)
     prediction = pd.DataFrame({"true label": all_labels_,
                           "Predicted_label": predicted_classes})
-  
+    print("The number of nodes in test data:\n", len(prediction['Predicted_label']))
+    print("The number of vul nodes:\n", len(prediction[prediction["true label"]==1]))
     return {
         "accuracy": accuracy,
         "Precision": precision,
@@ -999,7 +1001,7 @@ def methodcalculate_metrics(model, data):
         "roc_auc" : roc_,
         "mcc": mcc_,
         "pr_auc": pr_auc,
-    }, prediction, prediction, predicted_classes
+    }, prediction
 
 #  train the classifier
 checkpoint_path = f"{imp.outputs_dir()}/checkpoints"
@@ -1009,39 +1011,33 @@ samplesz = -1
 
 
    # load data
-# data = datasetssDatasetLineVDDataModule(
-#     batch_size=64,
-#     sample=samplesz,
-#     methodlevel=False,
-#     nsampling=True,
-#     nsampling_hops=2,
-#     gtype= "pdg+raw",
-#     splits="default",
-#     )
+data = datasetssDatasetLineVDDataModule(
+    batch_size=64,
+    sample=samplesz,
+    methodlevel=False,
+    nsampling=True,
+    nsampling_hops=2,
+    gtype= "pdg+raw",
+    splits="default",
+    )
 
 # Define the graph path
 dfpath = f"{imp.cache_dir()}/datasetss/datasetss_metadata.csv"
 df = pd.read_csv(dfpath)
 gpath = f"{imp.cache_dir()}/datasetss_linevd_codebert_pdg+raw"
 dftest = df[df['label'] == 'test']
-
-
-
 testgraph = []
-list_id_to_analyse = []
-func_label = []
+
 for i in os.listdir(gpath):  
     if int(i) in dftest['id'].tolist():
         try:
             g = load_graphs(f'{gpath}/{i}')[0][0]
             testgraph.append(g)
-            list_id_to_analyse.append(i)
-            vulf = dftest[dftest['id'] == int(i)]
-            func_label.append(vulf['vul'].values[0])
         except Exception as e:
             print(f"No constructed graph for code id {i}: {e}") 
 
-print("Total graphs in the test:", len(testgraph), "\nTotal vul in the test:", len(func_label))  
+print("Total graphs in the test:", len(testgraph))  
+
 
 
 max_epochs = 5 # 100
@@ -1094,15 +1090,15 @@ if not os.path.exists(path=checkpoint_path):
     
     # data = testgraph
     trainer.test(model, data)
-    metrics1 = statementcalculate_metrics(model, data)[0]    # methodcalculate_metrics(model, data)[0]
+    metrics1 = methodcalculate_metrics(model, data)[0]
     dfm = pd.DataFrame([metrics1])
     dfm.to_csv(f"{imp.outputs_dir()}/statement-evaluation_metrics.csv", index=False)
     print(f"statelement {metrics1} ")
     # method level
-    metrics = methodcalculate_metrics(model, data)[0]
-    dfm = pd.DataFrame([metrics])
-    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
-    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
+    metrics = statementcalculate_metrics(model, data)[0]
+    # dfm = pd.DataFrame([metrics])
+    # dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    # print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
 else:   
     print(f"[Infos ] ---> Saved model exits.")
     print(f"[Infos ] ---> Load from pretarined")
@@ -1126,30 +1122,12 @@ else:
     dfm.to_csv(f"{imp.outputs_dir()}/statement-evaluation_metrics.csv", index=False)
     print(f"statelement {metrics1} ")
     # method level
-    # metrics = statementcalculate_metrics(model, data)[0]
-    # dfm = pd.DataFrame([metrics])
-    # dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
-    # print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
-    
-    preduc_by_func = []
-    prediction_label = []
-    for i in data:
-        data = [i] 
-        metrics1 = methodcalculate_metrics(model, data)[0]
-        prediction = methodcalculate_metrics(model, data)[2]
-        predicted_classes = methodcalculate_metrics(model, data)[3]
-        prediction_label.append(prediction)
-        preduc_by_func.append(predicted_classes)
-        
-    
-    print("list id:", len(list_id_to_analyse), "\nfunc_label:", len(func_label), "\npreduc_by_func:", len(preduc_by_func))
-    analysisdf = pd.DataFrame({"Func id": list_id_to_analyse, "func_label": func_label, "preduc_by_func": preduc_by_func})
-    analysisdf.to_csv(f"{imp.outputs_dir()}/Analysis_by_func.csv", index=False)
-        
-        
+    metrics = statementcalculate_metrics(model, data)[0]
+    dfm = pd.DataFrame([metrics])
+    dfm.to_csv(f"{imp.outputs_dir()}/method-evaluation_metrics.csv", index=False)
+    print(f"[Infos ] Metrics on test set \n{metrics}\n[Infos ] -> Done.")
 
 
-# list_id_to_analyse
-# func_label 
+
 torch.cuda.empty_cache() # 13654
     
